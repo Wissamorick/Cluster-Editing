@@ -1,6 +1,14 @@
 import numpy as np
 from math import *
 from scipy import linalg
+import pandas as pd
+import numpy as np
+import sklearn.metrics as sm
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from sklearn import datasets
+ 
+
 
 def invsqrt(D): #D^-(1/2) if D is diagonal
     n=len(D)
@@ -85,8 +93,9 @@ for row in X:
 Y=np.array(Y)
 
 #STEP 5
-
-
+from sklearn.cluster import KMeans
+kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
+print(kmeans.labels_)
 
 
 
