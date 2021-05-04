@@ -56,7 +56,6 @@ def norm(v):
 
 #STEP 1
 
-K=6
 a=input()
 print('taille de la premiere ligne = ',len(a))
 compt=6
@@ -73,7 +72,7 @@ for i in range(e):
     b=int(b)
     Adj[a-1][b-1]=1
     Adj[b-1][a-1]=1
-    print(a,b,i)
+    #print(a,b,i)
 
 '''
 K=2
@@ -127,6 +126,8 @@ from scipy.sparse.linalg import eigsh
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse.csgraph import laplacian as csgraph_laplacian
 from sklearn.utils.fixes import lobpcg
+from sklearn.cluster import KMeans
+
 
 def _deterministic_vector_sign_flip(u):
     """Modify the sign of vectors for reproducibility.
@@ -189,70 +190,76 @@ def _set_diag(laplacian, value, norm_laplacian):
 
 
 adjacency=Adj
-n_components=K
-norm_laplacian=True
-laplacian, dd = csgraph_laplacian(adjacency, normed=norm_laplacian,
-                                      return_diag=True)
 
-n_nodes = adjacency.shape[0]
-if n_nodes < 5 * n_components + 1:
-    # see note above under arpack why lobpcg has problems with small
-    # number of nodes
-    # lobpcg will fallback to eigh, so we short circuit it
-    if sparse.isspmatrix(laplacian):
-        laplacian = laplacian.toarray()
-    _, diffusion_map = eigh(laplacian, check_finite=False)
-    embedding = diffusion_map.T[:n_components]
-    if norm_laplacian:
-        embedding = embedding / dd
+values_K=list(range(2,n))
+values_editions=[]
 
+for K in range(2,n):
+    print('K = ',K)
+    n_components=K
+    norm_laplacian=True
+    laplacian, dd = csgraph_laplacian(adjacency, normed=norm_laplacian,
+                                        return_diag=True)
 
-else:
-    laplacian = _set_diag(laplacian, 1, norm_laplacian)
-    # We increase the number of eigenvectors requested, as lobpcg
-    # doesn't behave well in low dimension
-    X = np.random.rand(laplacian.shape[0], n_components + 1)
-    X[:, 0] = dd.ravel()
-    _, diffusion_map = lobpcg(laplacian, X, tol=1e-15,
-                                largest=False, maxiter=2000)
-    embedding = diffusion_map.T[:n_components]
-    if norm_laplacian:
-        embedding = embedding / dd
-    if embedding.shape[0] == 1:
-        raise ValueError
-
-embedding = _deterministic_vector_sign_flip(embedding)
-X=embedding[:n_components].T
+    n_nodes = adjacency.shape[0]
+    if n_nodes < 5 * n_components + 1:
+        # see note above under arpack why lobpcg has problems with small
+        # number of nodes
+        # lobpcg will fallback to eigh, so we short circuit it
+        if sparse.isspmatrix(laplacian):
+            laplacian = laplacian.toarray()
+        _, diffusion_map = eigh(laplacian, check_finite=False)
+        embedding = diffusion_map.T[:n_components]
+        if norm_laplacian:
+            embedding = embedding / dd
 
 
-#STEP 4
-Y=[]
-i=-1
-for row in X:
-    norme=norm(row)
-    Y.append([])
-    i+=1
-    for elt in row:
-        elt=elt/norme
-        Y[i].append(elt)
-Y=np.array(Y)
+    else:
+        laplacian = _set_diag(laplacian, 1, norm_laplacian)
+        # We increase the number of eigenvectors requested, as lobpcg
+        # doesn't behave well in low dimension
+        X = np.random.rand(laplacian.shape[0], n_components + 1)
+        X[:, 0] = dd.ravel()
+        _, diffusion_map = lobpcg(laplacian, X, tol=1e-15,
+                                    largest=False, maxiter=2000)
+        embedding = diffusion_map.T[:n_components]
+        if norm_laplacian:
+            embedding = embedding / dd
+        if embedding.shape[0] == 1:
+            raise ValueError
 
-#STEP 5
-from sklearn.cluster import KMeans
-kmeans = KMeans(n_clusters=K, random_state=0).fit(X)
-print(kmeans.labels_)
+    embedding = _deterministic_vector_sign_flip(embedding)
+    X=embedding[:n_components].T
 
-#FORM THE NEW ADJACENCY MATRIX AND FIND THE NUMBER OF EDITIONS
-NewAdj=np.zeros([n,n])
-clusters=kmeans.labels_
-while max(clusters)>-1:
-    cluster=find_max_indices(clusters)
-    for index in cluster:
-        for indexbis in cluster:
-            NewAdj[index][indexbis]=1
-    for index in cluster:
-        clusters[index]=-1
 
-nbr_editions=sum(sum(abs(Adj-NewAdj)))
-print(nbr_editions)
+    #STEP 4
+    Y=[]
+    i=-1
+    for row in X:
+        norme=norm(row)
+        Y.append([])
+        i+=1
+        for elt in row:
+            elt=elt/norme
+            Y[i].append(elt)
+    Y=np.array(Y)
+
+    #STEP 5
+    kmeans = KMeans(n_clusters=K, random_state=0).fit(X)
+    print(kmeans.labels_)
+
+    #FORM THE NEW ADJACENCY MATRIX AND FIND THE NUMBER OF EDITIONS
+    NewAdj=np.zeros([n,n])
+    clusters=kmeans.labels_
+    while max(clusters)>-1:
+        cluster=find_max_indices(clusters)
+        for index in cluster:
+            for indexbis in cluster:
+                NewAdj[index][indexbis]=1
+        for index in cluster:
+            clusters[index]=-1
+
+    nbr_editions=sum(sum(abs(Adj-NewAdj)))
+    print(nbr_editions)
+    values_editions.append(nbr_editions)
 
