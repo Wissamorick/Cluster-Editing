@@ -7,8 +7,7 @@ import sklearn.metrics as sm
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn import datasets
-
-
+import matplotlib.pyplot as plt
 
 def invsqrt(D): #D^-(1/2) if D is diagonal
     n=len(D)
@@ -39,6 +38,17 @@ def find_maxs(L,k): #return the indices of the k biggest elements (in absolute v
     indices.sort()
     return indices
 
+def find_max_indices(L): #returns the indices of the biggest element of L
+    indices=[0]
+    max=L[0]
+    for i in range(len(L)):
+        elt=L[i]
+        if elt>max:
+            indices=[i]
+            max=elt
+        elif elt==max:
+            indices.append(i)
+    return indices
 
 def norm(v):
     return np.linalg.norm(v)
@@ -46,7 +56,7 @@ def norm(v):
 
 #STEP 1
 
-K=4
+K=6
 a=input()
 print('taille de la premiere ligne = ',len(a))
 compt=6
@@ -116,7 +126,8 @@ from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse.csgraph import laplacian as csgraph_laplacian
-random_state=None
+from sklearn.utils.fixes import lobpcg
+
 def _deterministic_vector_sign_flip(u):
     """Modify the sign of vectors for reproducibility.
     Flips the sign of elements of all the vectors (rows of u) such that
@@ -200,7 +211,7 @@ else:
     laplacian = _set_diag(laplacian, 1, norm_laplacian)
     # We increase the number of eigenvectors requested, as lobpcg
     # doesn't behave well in low dimension
-    X = random_state.rand(laplacian.shape[0], n_components + 1)
+    X = np.random.rand(laplacian.shape[0], n_components + 1)
     X[:, 0] = dd.ravel()
     _, diffusion_map = lobpcg(laplacian, X, tol=1e-15,
                                 largest=False, maxiter=2000)
@@ -230,3 +241,18 @@ Y=np.array(Y)
 from sklearn.cluster import KMeans
 kmeans = KMeans(n_clusters=K, random_state=0).fit(X)
 print(kmeans.labels_)
+
+#FORM THE NEW ADJACENCY MATRIX AND FIND THE NUMBER OF EDITIONS
+NewAdj=np.zeros([n,n])
+clusters=kmeans.labels_
+while max(clusters)>-1:
+    cluster=find_max_indices(clusters)
+    for index in cluster:
+        for indexbis in cluster:
+            NewAdj[index][indexbis]=1
+    for index in cluster:
+        clusters[index]=-1
+
+nbr_editions=sum(sum(abs(Adj-NewAdj)))
+print(nbr_editions)
+
